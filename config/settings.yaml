@@ -1,0 +1,62 @@
+system:
+  app_name: "Anti-Microsleep Driver Early Warning System"
+  version: "1.0.0"
+  calibration_duration_sec: 3.0  # Duración para calibrar el EAR/MAR basal del usuario
+
+camera:
+  device_id: 0
+  width: 640
+  height: 480
+  target_fps: 30
+
+preprocessing:
+  enable_clahe: true            # Ecualización adaptativa para sombras o sol directo
+  clahe_clip_limit: 2.0
+  clahe_tile_grid_size: [8, 8]
+
+detection:
+  model_path: "models/face_landmarker.task"
+  min_face_detection_confidence: 0.5
+  min_face_presence_confidence: 0.5
+  min_tracking_confidence: 0.5
+
+thresholds:
+  # Ojos y Parpadeo
+  ear_baseline_multiplier: 0.75 # Factor respecto a la línea base calibrada
+  ear_absolute_closed: 0.21     # Umbral absoluto por si no hay calibración
+  ear_drowsy_closed: 0.24       # Umbral de párpado caído / somnolencia incipiente
+  blink_slow_duration_ms: 380   # Parpadeo lento patológico de fatiga (>380ms)
+  microsleep_duration_ms: 1000  # Cierre sostenido de ojos (>1000ms = microsueño inmediato)
+
+  # PERCLOS (Porcentaje de Cierre Palpebral en ventana temporal)
+  perclos_window_seconds: 15.0  # Ventana móvil de análisis
+  perclos_warning: 0.15         # 15% del tiempo con ojos cerrados -> alerta amarilla
+  perclos_critical: 0.25        # 25% del tiempo con ojos cerrados -> peligro crítico
+
+  # Boca y Bostezos
+  mar_yawn_threshold: 0.62      # Umbral MAR apertura bucal para bostezo
+  yawn_min_duration_sec: 1.5    # Tiempo mínimo sostenido para confirmar bostezo
+  yawn_history_window_sec: 60.0 # Ventana para conteo de bostezos frecuentes
+
+  # Orientación de Cabeza (solvePnP)
+  nod_pitch_threshold: -16.0    # Cabeceo hacia abajo (grados)
+  nod_min_duration_sec: 1.2     # Tiempo con cabeza agachada
+  distraction_yaw_threshold: 28.0 # Giro lateral (mirar a un lado fuera de la ruta)
+  distraction_duration_sec: 2.0
+
+early_warning_weights:
+  perclos: 0.35                 # Ponderación PERCLOS en el índice EWFI
+  slow_blinks: 0.25             # Ponderación de parpadeos lentos
+  yawns: 0.20                   # Ponderación de frecuencia de bostezos
+  head_instability: 0.20        # Ponderación de cabeceos/postura
+
+alert_levels:
+  attention_score: 35.0         # Nivel 1: Atención temprana
+  warning_score: 60.0           # Nivel 2: Fatiga moderada acumulada
+  critical_score: 75.0          # Nivel 3: Microsueño crítico inminente
+
+alerts:
+  enable_audio: true
+  enable_hud: true
+  log_events_to_csv: true
+  csv_log_path: "data/logs/fatigue_events.csv"
